@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-struct BitBoard(u64);
+pub struct BitBoard(u64);
 
 impl BitBoard {
     fn toggle(&mut self, x: usize, y: usize) -> Result<(), ()> {
