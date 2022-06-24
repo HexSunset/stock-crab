@@ -65,26 +65,22 @@ impl SideMap {
 }
 
 pub struct Position {
-    side: Color,
-    halfturn: usize,
+    pub side: Color,
+    pub halfturn: usize,
 
-    w_castling: Castling,
+    pub w_castling: Castling,
 
-    b_castling: Castling,
+    pub b_castling: Castling,
 
-    en_passant: Option<Square>,
+    pub en_passant: Option<Square>,
 
-    w_pieces_all: BitBoard,
-    w_pieces: SideMap,
+    pub w_pieces_all: BitBoard,
+    pub w_pieces: SideMap,
 
-    w_attacks_all: BitBoard,
-    w_attacks: SideMap,
+    pub b_pieces_all: BitBoard,
+    pub b_pieces: SideMap,
 
-    b_pieces_all: BitBoard,
-    b_pieces: SideMap,
-
-    b_attacks_all: BitBoard,
-    b_attacks: SideMap,
+    pub history: Vec<Move>,
 }
 
 impl Position {
@@ -136,12 +132,12 @@ impl Position {
             ));
         }
 
-        let mut w_castling = Castling {
+        let w_castling = Castling {
             king_side: fen.as_str().contains('K'),
             queen_side: fen.as_str().contains('Q'),
         };
 
-        let mut b_castling = Castling {
+        let b_castling = Castling {
             king_side: fen.as_str().contains('k'),
             queen_side: fen.as_str().contains('q'),
         };
@@ -170,7 +166,7 @@ impl Position {
 
         let halfturn: usize = fen[4].parse()?;
 
-        let out = Ok(Position {
+        Ok(Position {
             side,
             halfturn,
             w_castling,
@@ -178,14 +174,72 @@ impl Position {
             en_passant,
             w_pieces_all,
             w_pieces,
-            w_attacks_all,
-            w_attacks,
             b_pieces_all,
             b_pieces,
-            b_attacks_all,
-            b_attacks,
-        });
+            history: vec![],
+        })
+    }
 
-        unimplemented!();
+    /// Useful for displaying the position in a terminal.
+    /// Lowecase letters refer to black pieces, uppercase refers to white.
+    pub fn into_char_vec(&self) -> Vec<char> {
+        let mut out = vec![' '; 64];
+
+        for (ptype, board) in self.w_pieces.get_map() {
+            let c = ptype.to_char().to_ascii_uppercase();
+
+            for x in 0..8 {
+                for y in 0..8 {
+                    if board.get(x, y) == Some(true) {
+                        out[y as usize * 8 + x as usize] = c;
+                    }
+                }
+            }
+        }
+
+        for (ptype, board) in self.b_pieces.get_map() {
+            let c = ptype.to_char();
+
+            for x in 0..8 {
+                for y in 0..8 {
+                    if board.get(x, y) == Some(true) {
+                        out[y as usize * 8 + x as usize] = c;
+                    }
+                }
+            }
+        }
+
+        out
+    }
+}
+
+pub struct Move {
+    from: Square,
+    to: Square,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_fen() {
+        // Starting position
+        assert!(Position::from_fen(
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()
+        )
+        .is_ok());
+
+        // Invalid number of pieces
+        assert!(Position::from_fen(
+            "rnbqkbn/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()
+        )
+        .is_err());
+
+        // Invalid number of pieces
+        assert!(Position::from_fen(
+            "rnbqkbnr/pppppppp/7/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()
+        )
+        .is_err());
     }
 }
