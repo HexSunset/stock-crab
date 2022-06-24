@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[derive(PartialEq, Eq, Hash)]
 pub enum PieceType {
     King,
@@ -21,6 +23,17 @@ impl PieceType {
             'n' => Some(Ptype::Knight),
             'p' => Some(Ptype::Pawn),
             _ => None,
+        }
+    }
+
+    pub fn to_char(&self) -> char {
+        match self {
+            PieceType::King => 'k',
+            PieceType::Queen => 'q',
+            PieceType::Rook => 'r',
+            PieceType::Bishop => 'b',
+            PieceType::Knight => 'n',
+            PieceType::Pawn => 'p',
         }
     }
 }
