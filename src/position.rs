@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod bitboard;
 mod piece;
 mod square;
@@ -14,10 +16,10 @@ pub struct Castling {
     queen_side: bool,
 }
 
-struct SideMap(HashMap<PieceType, BitBoard>);
+pub struct SideMap(HashMap<PieceType, BitBoard>);
 
 impl SideMap {
-    fn new() -> SideMap {
+    pub fn new() -> SideMap {
         SideMap(HashMap::from([
             (PieceType::King, BitBoard::new()),
             (PieceType::Queen, BitBoard::new()),
@@ -28,17 +30,37 @@ impl SideMap {
         ]))
     }
 
-    fn toggle(&mut self, ptype: PieceType, file: u32, rank: u32) {
-        let board = self.0.entry(ptype).and_modify(|b| b.toggle(file, rank));
+    pub fn toggle(&mut self, ptype: PieceType, file: u32, rank: u32) {
+        self.0.entry(ptype).and_modify(|b| b.toggle(file, rank));
     }
 
-    fn combine(&self) -> BitBoard {
+    pub fn get(&self, ptype: PieceType, file: u32, rank: u32) -> Option<bool> {
+        self.0.get(&ptype).unwrap().get(file, rank)
+    }
+
+    pub fn set(&mut self, ptype: PieceType, file: u32, rank: u32) {
+        self.0.get_mut(&ptype).unwrap().set(file, rank)
+    }
+
+    pub fn unset(&mut self, ptype: PieceType, file: u32, rank: u32) {
+        self.0.get_mut(&ptype).unwrap().unset(file, rank)
+    }
+
+    pub fn combine(&self) -> BitBoard {
         let mut out = BitBoard::new();
         for (_, pieceboard) in &self.0 {
             out.or_assign(*pieceboard);
         }
 
         out
+    }
+
+    pub fn get_map(&self) -> &HashMap<PieceType, BitBoard> {
+        &self.0
+    }
+
+    pub fn get_mut_map(&mut self) -> &mut HashMap<PieceType, BitBoard> {
+        &mut self.0
     }
 }
 
