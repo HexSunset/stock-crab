@@ -1,5 +1,15 @@
 mod position;
+mod tui;
+
+use std::io::{self, Write};
 
 fn main() {
-    println!("Hello, world!");
+    let mut input = String::new();
+    print!("FEN: ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut input).unwrap();
+    println!();
+
+    let pos = position::Position::from_fen(input).unwrap();
+    tui::print_position(&pos);
 }
