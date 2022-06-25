@@ -1,4 +1,4 @@
-mod position;
+mod board;
 mod tui;
 
 use std::io::{self, Write};
@@ -10,6 +10,6 @@ fn main() {
     io::stdin().read_line(&mut input).unwrap();
     println!();
 
-    let pos = position::Position::from_fen(input).unwrap();
+    let pos = board::Position::from_fen(input).unwrap();
     tui::print_position(&pos);
 }
