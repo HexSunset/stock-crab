@@ -222,6 +222,7 @@ impl Position {
         for (piece, board) in new_w_attacks.get_mut_map() {
             *board = piece::get_piece_attack_map(
                 *piece,
+                Color::White,
                 w_pieces.get_map().get(piece).unwrap(),
                 &self.w_pieces_all,
                 &self.b_pieces_all,
@@ -235,6 +236,7 @@ impl Position {
         for (piece, board) in new_b_attacks.get_mut_map() {
             *board = piece::get_piece_attack_map(
                 *piece,
+                Color::Black,
                 b_pieces.get_map().get(piece).unwrap(),
                 &self.b_pieces_all,
                 &self.w_pieces_all,
