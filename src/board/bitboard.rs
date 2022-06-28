@@ -1,15 +1,56 @@
 #![allow(dead_code)]
 
+use std::fmt::Display;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BitBoard(u64);
+
+impl Display for BitBoard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut output = String::new();
+
+        for y in 0..8 {
+            for x in 0..8 {
+                match self.get(x, 7 - y) {
+                    Some(true) => output.push_str("1"),
+                    Some(false) => output.push_str("0"),
+                    None => (),
+                }
+            }
+            output.push_str("\n");
+        }
+
+        write!(f, "{}", output)
+    }
+}
 
 impl BitBoard {
     pub fn new() -> BitBoard {
         BitBoard(0)
     }
 
+    pub fn from(n: u64) -> BitBoard {
+        BitBoard(n)
+    }
+
     pub fn as_u64(&self) -> u64 {
         self.0
+    }
+
+    pub fn as_bitvec(&self) -> Vec<usize> {
+        let mut out = vec![0; 64];
+
+        let linear_index = |x, y| (y * 8 + x) as usize;
+
+        for x in 0..8 {
+            for y in 0..8 {
+                if self.get(x, y) == Some(true) {
+                    out[linear_index(x, y)] = 1;
+                }
+            }
+        }
+
+        out
     }
 
     // Set square on
