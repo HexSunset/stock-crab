@@ -10,6 +10,6 @@ fn main() {
     io::stdin().read_line(&mut input).unwrap();
     println!();
 
-    let pos = board::Position::from_fen(input).unwrap();
+    let pos = board::parse::from_fen(input).unwrap();
     tui::print_position(&pos);
 }

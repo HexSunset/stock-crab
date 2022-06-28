@@ -1,16 +1,17 @@
 #![allow(dead_code)]
 
 mod bitboard;
+mod eval;
 mod movegen;
-mod piece;
+pub mod parse;
+pub mod piece;
 mod square;
 
 use bitboard::BitBoard;
+use movegen::Move;
 use piece::{Color, PieceType};
 use square::Square;
 use std::collections::HashMap;
-
-use anyhow::{anyhow, Result};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Castling {
@@ -65,10 +66,20 @@ impl SideMap {
     pub fn get_mut_map(&mut self) -> &mut HashMap<PieceType, BitBoard> {
         &mut self.0
     }
+
+    pub fn get_board(&self, piece: PieceType) -> BitBoard {
+        self.0.get(&piece).unwrap().clone()
+    }
+
+    pub fn get_mut_board(&mut self, piece: PieceType) -> &mut BitBoard {
+        self.0.get_mut(&piece).unwrap()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Position {
+    pub gamestate: GameState,
+
     pub side: Color,
     pub halfturn: usize,
 
@@ -81,8 +92,14 @@ pub struct Position {
     pub w_pieces_all: BitBoard,
     pub w_pieces: SideMap,
 
+    pub w_attacks_all: BitBoard,
+    pub w_attacks: SideMap,
+
     pub b_pieces_all: BitBoard,
     pub b_pieces: SideMap,
+
+    pub b_attacks_all: BitBoard,
+    pub b_attacks: SideMap,
 
     pub history: Vec<Move>,
     pub legal_moves: Vec<Move>,
@@ -198,108 +215,37 @@ impl Position {
         };
     }
 
-    fn parse_pieces(fen: String) -> Result<(SideMap, SideMap)> {
-        let mut w_pieces: SideMap = SideMap::new();
-        let mut b_pieces: SideMap = SideMap::new();
+    fn update_attack_maps(&mut self) {
+        let w_pieces = &self.w_pieces;
+        let mut new_w_attacks = SideMap::new();
 
-        let mut rank: u32 = 7;
-        let mut file: u32 = 0;
-
-        for (index, c) in fen.as_str().chars().enumerate() {
-            if c.is_ascii_digit() {
-                if file + c.to_digit(10).unwrap() <= 8 {
-                    file += c.to_digit(10).unwrap();
-                } else {
-                    return Err(anyhow!(
-                        "Invalid character '{c}' at position {index} in FEN"
-                    ));
-                }
-            } else if let Some(p) = PieceType::from_char(c) {
-                let map: &mut SideMap = if c.is_ascii_uppercase() {
-                    &mut w_pieces
-                } else {
-                    &mut b_pieces
-                };
-
-                map.toggle(p, file, rank);
-                file += 1;
-            } else if c == '/' {
-            } else {
-                return Err(anyhow!(
-                    "Invalid character '{c}' at position {index} in FEN"
-                ));
-            }
-
-            if file == 8 && rank > 0 {
-                file = 0;
-                rank -= 1;
-            }
+        for (piece, board) in new_w_attacks.get_mut_map() {
+            *board = piece::get_piece_attack_map(
+                *piece,
+                w_pieces.get_map().get(piece).unwrap(),
+                &self.w_pieces_all,
+                &self.b_pieces_all,
+            );
         }
+        let new_w_attacks_all = new_w_attacks.combine();
 
-        Ok((w_pieces, b_pieces))
-    }
+        let b_pieces = &self.b_pieces;
+        let mut new_b_attacks = SideMap::new();
 
-    fn parse_castling(fen: String) -> Result<(Castling, Castling)> {
-        if fen.as_str() == "-" {
-            return Ok((
-                Castling {
-                    king_side: false,
-                    queen_side: false,
-                },
-                Castling {
-                    king_side: false,
-                    queen_side: false,
-                },
-            ));
+        for (piece, board) in new_b_attacks.get_mut_map() {
+            *board = piece::get_piece_attack_map(
+                *piece,
+                b_pieces.get_map().get(piece).unwrap(),
+                &self.b_pieces_all,
+                &self.w_pieces_all,
+            );
         }
+        let new_b_attacks_all = new_b_attacks.combine();
 
-        let w_castling = Castling {
-            king_side: fen.as_str().contains('K'),
-            queen_side: fen.as_str().contains('Q'),
-        };
-
-        let b_castling = Castling {
-            king_side: fen.as_str().contains('k'),
-            queen_side: fen.as_str().contains('q'),
-        };
-
-        Ok((w_castling, b_castling))
-    }
-
-    pub fn from_fen(fen: String) -> Result<Position> {
-        let fen: Vec<&str> = fen.as_str().split(' ').collect();
-
-        let pieces = fen[0].to_string();
-        let (w_pieces, b_pieces) = Position::parse_pieces(pieces)?;
-        let w_pieces_all = w_pieces.combine();
-        let b_pieces_all = b_pieces.combine();
-
-        let side = match fen[1] {
-            "w" => Color::White,
-            "b" => Color::Black,
-            _ => return Err(anyhow!("Invalid side color in FEN")),
-        };
-
-        let castling = fen[2].to_string();
-        let (w_castling, b_castling) = Position::parse_castling(castling)?;
-
-        let en_passant = Square::from_str(fen[3]);
-
-        let halfturn: usize = fen[4].parse()?;
-
-        Ok(Position {
-            side,
-            halfturn,
-            w_castling,
-            b_castling,
-            en_passant,
-            w_pieces_all,
-            w_pieces,
-            b_pieces_all,
-            b_pieces,
-            history: vec![],
-            legal_moves: vec![],
-        })
+        self.w_attacks = new_w_attacks;
+        self.w_attacks_all = new_w_attacks_all;
+        self.b_attacks = new_b_attacks;
+        self.b_attacks_all = new_b_attacks_all;
     }
 
     /// Useful for displaying the position in a terminal.
@@ -308,7 +254,7 @@ impl Position {
         let mut out = vec![' '; 64];
 
         for (ptype, board) in self.w_pieces.get_map() {
-            let c = ptype.to_char().to_ascii_uppercase();
+            let c = ptype.to_char(Color::White);
 
             for x in 0..8 {
                 for y in 0..8 {
@@ -320,7 +266,7 @@ impl Position {
         }
 
         for (ptype, board) in self.b_pieces.get_map() {
-            let c = ptype.to_char();
+            let c = ptype.to_char(Color::Black);
 
             for x in 0..8 {
                 for y in 0..8 {
@@ -335,17 +281,12 @@ impl Position {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Move {
-    pub from: Square,
-    pub to: Square,
-    pub ptype: PieceType,
-    pub change: StateChange,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct StateChange {
-    captured: Option<PieceType>,
+#[derive(Clone, PartialEq, Debug)]
+pub enum GameState {
+    Normal,
+    InCheck(Color),
+    Draw,
+    Won(Color),
 }
 
 #[cfg(test)]
@@ -357,19 +298,19 @@ mod tests {
     #[test]
     fn from_fen() {
         // Starting position
-        assert!(Position::from_fen(
+        assert!(parse::from_fen(
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()
         )
         .is_ok());
 
         // Invalid number of pieces
-        assert!(Position::from_fen(
+        assert!(parse::from_fen(
             "rnbqkbn/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()
         )
         .is_err());
 
         // Invalid number of pieces
-        assert!(Position::from_fen(
+        assert!(parse::from_fen(
             "rnbqkbnr/pppppppp/7/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string()
         )
         .is_err());
@@ -377,7 +318,7 @@ mod tests {
 
     #[test]
     fn change_and_reverse() {
-        let mut pos = Position::from_fen(
+        let mut pos = parse::from_fen(
             "rnbqkb1r/pppp1ppp/5n2/4p3/4PP2/2N5/PPPP2PP/R1BQKBNR b KQkq f3 0 3".to_string(),
         )
         .unwrap();
@@ -386,7 +327,7 @@ mod tests {
             from: Square::from_str("e5").unwrap(),
             to: Square::from_str("f4").unwrap(),
             ptype: PieceType::Pawn,
-            change: StateChange {
+            change: movegen::StateChange {
                 captured: Some(PieceType::Pawn),
             },
         };
