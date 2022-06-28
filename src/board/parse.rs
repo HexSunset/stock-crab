@@ -1,4 +1,5 @@
-use super::{Castling, Color, PieceType, Position, SideMap, Square};
+use super::{eval, square};
+use super::{BitBoard, Castling, Color, GameState, PieceType, Position, SideMap, Square};
 use anyhow::{anyhow, Result};
 
 fn parse_pieces(fen: String) -> Result<(SideMap, SideMap)> {
@@ -17,11 +18,10 @@ fn parse_pieces(fen: String) -> Result<(SideMap, SideMap)> {
                     "Invalid character '{c}' at position {index} in FEN"
                 ));
             }
-        } else if let Some(p) = PieceType::from_char(c) {
-            let map: &mut SideMap = if c.is_ascii_uppercase() {
-                &mut w_pieces
-            } else {
-                &mut b_pieces
+        } else if let Ok((p, c)) = PieceType::from_char(c) {
+            let map: &mut SideMap = match c {
+                Color::White => &mut w_pieces,
+                Color::Black => &mut b_pieces,
             };
 
             map.toggle(p, file, rank);
@@ -86,11 +86,23 @@ pub fn from_fen(fen: String) -> Result<Position> {
     let castling = fen[2].to_string();
     let (w_castling, b_castling) = parse_castling(castling)?;
 
-    let en_passant = Square::from_str(fen[3]);
+    let en_passant = match fen[3] {
+        "-" => None,
+        _ => {
+            let sqr = Square::from_str(fen[3]);
+            if let Ok(s) = sqr {
+                Some(s)
+            } else {
+                None
+            }
+        }
+    };
 
     let halfturn: usize = fen[4].parse()?;
 
-    Ok(Position {
+    //TODO: Check gamestate.
+
+    let mut pos = Position {
         side,
         halfturn,
         w_castling,
@@ -102,5 +114,14 @@ pub fn from_fen(fen: String) -> Result<Position> {
         b_pieces,
         history: vec![],
         legal_moves: vec![],
-    })
+        gamestate: GameState::Normal,
+        w_attacks_all: BitBoard::new(),
+        w_attacks: SideMap::new(),
+        b_attacks_all: BitBoard::new(),
+        b_attacks: SideMap::new(),
+    };
+
+    pos.update_attack_maps();
+
+    Ok(pos)
 }
