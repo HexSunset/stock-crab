@@ -58,11 +58,11 @@ pub fn get_piece_attack_map(
     opposing: &BitBoard,
 ) -> BitBoard {
     match p {
-        PieceType::King => get_king_attack_map(b, friendly),
+        PieceType::King => get_king_attack_map(b),
         PieceType::Queen => get_queen_attack_map(b, friendly, opposing),
         PieceType::Rook => get_rook_attack_map(b, friendly, opposing),
         PieceType::Bishop => get_bishop_attack_map(b, friendly, opposing),
-        PieceType::Knight => get_knight_attack_map(b, friendly, opposing),
+        PieceType::Knight => get_knight_attack_map(b),
         PieceType::Pawn => get_pawn_attack_map(b, c),
     }
 }
@@ -99,7 +99,7 @@ fn get_pawn_attack_map(b: &BitBoard, c: Color) -> BitBoard {
     out
 }
 
-fn get_knight_attack_map(b: &BitBoard, friendly: &BitBoard, opposing: &BitBoard) -> BitBoard {
+fn get_knight_attack_map(b: &BitBoard) -> BitBoard {
     let mut out = BitBoard::new();
 
     for file in 0..8 {
@@ -272,7 +272,7 @@ fn get_queen_attack_map(b: &BitBoard, friendly: &BitBoard, opposing: &BitBoard) 
     out
 }
 
-fn get_king_attack_map(b: &BitBoard, friendly: &BitBoard) -> BitBoard {
+fn get_king_attack_map(b: &BitBoard) -> BitBoard {
     let mut out = BitBoard::new();
 
     // Find location of king
