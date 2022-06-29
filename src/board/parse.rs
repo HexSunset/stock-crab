@@ -1,4 +1,3 @@
-use super::{eval, square};
 use super::{BitBoard, Castling, Color, GameState, PieceType, Position, SideMap, Square};
 use anyhow::{anyhow, Result};
 
